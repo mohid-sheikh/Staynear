@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { HiPlus, HiX, HiUpload, HiCheck } from "react-icons/hi";
+import { HiX, HiUpload, HiCheck, HiTrash } from "react-icons/hi";
 import { ROOM_TYPES } from "../../utils/constants.js";
+import LocationPicker from "../maps/LocationPicker.jsx";
+import { getImageUrl } from "../../utils/imageUtils.js";
 
 const DEFAULT_AMENITIES = [
   "Wi-Fi",
@@ -30,6 +32,13 @@ const ListingForm = ({ initialValues = {}, onSubmit, isEditing = false, loading 
     available: true,
   });
 
+  const [location, setLocation] = useState({
+    address: "",
+    latitude: null,
+    longitude: null,
+  });
+
+  const [existingImages, setExistingImages] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [filePreviews, setFilePreviews] = useState([]);
   const [amenityInput, setAmenityInput] = useState("");
@@ -47,6 +56,18 @@ const ListingForm = ({ initialValues = {}, onSubmit, isEditing = false, loading 
         amenities: Array.isArray(initialValues.amenities) ? initialValues.amenities : [],
         available: initialValues.available !== undefined ? initialValues.available : true,
       });
+
+      if (Array.isArray(initialValues.images)) {
+        setExistingImages(initialValues.images);
+      }
+
+      if (initialValues.location) {
+        setLocation({
+          address: initialValues.location.address || "",
+          latitude: initialValues.location.latitude ?? null,
+          longitude: initialValues.location.longitude ?? null,
+        });
+      }
     }
   }, [initialValues]);
 
@@ -82,40 +103,61 @@ const ListingForm = ({ initialValues = {}, onSubmit, isEditing = false, loading 
   };
 
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files).slice(0, 5);
-    setSelectedFiles(files);
+    const incomingFiles = Array.from(e.target.files);
+    const maxAllowed = Math.max(0, 5 - existingImages.length);
+    const filesToKeep = incomingFiles.slice(0, maxAllowed);
 
-    const previews = files.map((file) => URL.createObjectURL(file));
+    const updatedSelected = [...selectedFiles, ...filesToKeep].slice(0, maxAllowed);
+    setSelectedFiles(updatedSelected);
+
+    const previews = updatedSelected.map((file) => URL.createObjectURL(file));
+    setFilePreviews(previews);
+  };
+
+  const handleRemoveExistingImage = (indexToRemove) => {
+    setExistingImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleRemoveSelectedFile = (indexToRemove) => {
+    const updatedFiles = selectedFiles.filter((_, idx) => idx !== indexToRemove);
+    setSelectedFiles(updatedFiles);
+    const previews = updatedFiles.map((file) => URL.createObjectURL(file));
     setFilePreviews(previews);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    const data = new FormData();
+    data.append("title", formData.title);
+    data.append("description", formData.description);
+    data.append("rent", formData.rent);
+    data.append("city", formData.city);
+    data.append("area", formData.area);
+    data.append("collegeNearby", formData.collegeNearby);
+    data.append("roomType", formData.roomType);
+
     if (isEditing) {
-      // Edit Listing sends JSON body
-      onSubmit(formData);
-    } else {
-      // Create Listing sends Multipart FormData
-      const data = new FormData();
-      data.append("title", formData.title);
-      data.append("description", formData.description);
-      data.append("rent", formData.rent);
-      data.append("city", formData.city);
-      data.append("area", formData.area);
-      data.append("collegeNearby", formData.collegeNearby);
-      data.append("roomType", formData.roomType);
-
-      formData.amenities.forEach((amenity) => {
-        data.append("amenities", amenity);
-      });
-
-      selectedFiles.forEach((file) => {
-        data.append("images", file);
-      });
-
-      onSubmit(data);
+      data.append("available", formData.available);
     }
+
+    formData.amenities.forEach((amenity) => {
+      data.append("amenities", amenity);
+    });
+
+    existingImages.forEach((img) => {
+      data.append("existingImages", img);
+    });
+
+    selectedFiles.forEach((file) => {
+      data.append("images", file);
+    });
+
+    if (location.address || location.latitude !== null || location.longitude !== null) {
+      data.append("location", JSON.stringify(location));
+    }
+
+    onSubmit(data);
   };
 
   return (
@@ -211,6 +253,14 @@ const ListingForm = ({ initialValues = {}, onSubmit, isEditing = false, loading 
             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-800 focus:bg-white focus:border-blue-600 focus:outline-none"
           />
         </div>
+      </div>
+
+      {/* Location & Interactive Map Picker */}
+      <div className="space-y-2">
+        <h4 className="text-sm font-bold text-slate-900">
+          Property Map Location & Address
+        </h4>
+        <LocationPicker location={location} onChange={setLocation} />
       </div>
 
       {/* Room Type Selector */}
@@ -314,12 +364,40 @@ const ListingForm = ({ initialValues = {}, onSubmit, isEditing = false, loading 
         </div>
       )}
 
-      {/* Image File Uploads (for Create Listing) */}
-      {!isEditing && (
-        <div className="space-y-3 pt-2">
-          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-            Property Photos (Up to 5 images)
-          </label>
+      {/* Image File Uploads & Management (Both Create & Edit) */}
+      <div className="space-y-4 pt-2">
+        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+          Property Photos (Up to 5 images total)
+        </label>
+
+        {/* Existing Images display (Edit mode) */}
+        {existingImages.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-slate-500 block">Current Photos:</span>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+              {existingImages.map((img, idx) => (
+                <div key={idx} className="relative h-24 rounded-2xl overflow-hidden border border-slate-200 shadow-xs group">
+                  <img
+                    src={getImageUrl(img)}
+                    alt={`Property photo ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveExistingImage(idx)}
+                    className="absolute top-1 right-1 w-7 h-7 rounded-full bg-red-600/90 hover:bg-red-700 text-white flex items-center justify-center text-xs shadow-md transition-all cursor-pointer"
+                    title="Delete photo"
+                  >
+                    <HiTrash />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Upload Input Area (if total < 5) */}
+        {existingImages.length + selectedFiles.length < 5 && (
           <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-3xl p-6 text-center bg-slate-50 transition-colors">
             <input
               type="file"
@@ -334,26 +412,37 @@ const ListingForm = ({ initialValues = {}, onSubmit, isEditing = false, loading 
                 <HiUpload />
               </div>
               <span className="text-sm font-bold text-slate-800">
-                Click to upload property images
+                Click to upload {existingImages.length > 0 ? "additional property images" : "property images"}
               </span>
               <span className="text-xs text-slate-400">
-                JPEG, PNG or WEBP (Max 5 photos, uploaded directly to Cloudinary)
+                JPEG, PNG or WEBP (Max {5 - existingImages.length} photos)
               </span>
             </label>
           </div>
+        )}
 
-          {/* Previews */}
-          {filePreviews.length > 0 && (
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 pt-3">
+        {/* New File Previews */}
+        {filePreviews.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-slate-500 block">New Photos to Upload:</span>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
               {filePreviews.map((preview, idx) => (
-                <div key={idx} className="relative h-20 rounded-xl overflow-hidden border border-slate-200 shadow-xs">
-                  <img src={preview} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                <div key={idx} className="relative h-24 rounded-2xl overflow-hidden border border-slate-200 shadow-xs group">
+                  <img src={preview} alt={`New Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSelectedFile(idx)}
+                    className="absolute top-1 right-1 w-7 h-7 rounded-full bg-red-600/90 hover:bg-red-700 text-white flex items-center justify-center text-xs shadow-md transition-all cursor-pointer"
+                    title="Remove selected file"
+                  >
+                    <HiX />
+                  </button>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* Submit Button */}
       <div className="pt-4 border-t border-slate-100 flex justify-end">

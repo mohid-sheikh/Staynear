@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useWishlist } from "../../hooks/useWishlist.js";
-import { HiHome, HiSearch, HiHeart, HiUser, HiPlus, HiLogout, HiMenu, HiX } from "react-icons/hi";
+import { HiHome, HiSearch, HiHeart, HiUser, HiPlus, HiLogout, HiMenu, HiX, HiCalendar } from "react-icons/hi";
 import { FaBuilding, FaUserCircle } from "react-icons/fa";
 
 const Navbar = () => {
@@ -60,28 +60,56 @@ const Navbar = () => {
             </Link>
 
             {isAuthenticated && isStudent && (
-              <Link
-                to="/student/saved"
-                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-1.5"
-              >
-                <HiHeart className="text-orange-500 text-base" />
-                <span>Saved</span>
-                {wishlist.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 font-bold rounded-full">
-                    {wishlist.length}
-                  </span>
-                )}
-              </Link>
+              <>
+                <Link
+                  to="/student/visits"
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    isActive("/student/visits")
+                      ? "bg-blue-50 text-blue-600 font-semibold"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <HiCalendar className="text-orange-500 text-base" />
+                  <span>My Visits</span>
+                </Link>
+
+                <Link
+                  to="/student/saved"
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-1.5"
+                >
+                  <HiHeart className="text-orange-500 text-base" />
+                  <span>Saved</span>
+                  {wishlist.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-orange-100 text-orange-600 font-bold rounded-full">
+                      {wishlist.length}
+                    </span>
+                  )}
+                </Link>
+              </>
             )}
 
             {isAuthenticated && isOwner && (
-              <Link
-                to="/owner/create-listing"
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1.5 shadow-sm transition-all duration-200 hover:shadow"
-              >
-                <HiPlus className="text-lg" />
-                <span>Post Accommodation</span>
-              </Link>
+              <>
+                <Link
+                  to="/owner/visits"
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    isActive("/owner/visits")
+                      ? "bg-blue-50 text-blue-600 font-semibold"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <HiCalendar className="text-blue-600 text-base" />
+                  <span>Visit Requests</span>
+                </Link>
+
+                <Link
+                  to="/owner/create-listing"
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-1.5 shadow-sm transition-all duration-200 hover:shadow"
+                >
+                  <HiPlus className="text-lg" />
+                  <span>Post Accommodation</span>
+                </Link>
+              </>
             )}
           </nav>
 
@@ -91,7 +119,7 @@ const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 hover:border-slate-300 hover:shadow-xs transition-all bg-white"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 hover:border-slate-300 hover:shadow-xs transition-all bg-white cursor-pointer"
                 >
                   <FaUserCircle className="text-2xl text-blue-600" />
                   <span className="text-sm font-medium text-slate-700 max-w-[120px] truncate">
@@ -122,15 +150,36 @@ const Navbar = () => {
                       Dashboard
                     </Link>
 
-                    {isOwner && (
+                    {isStudent && (
                       <Link
-                        to="/owner/listings"
+                        to="/student/visits"
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
                       >
-                        <FaBuilding className="text-slate-400" />
-                        My Properties
+                        <HiCalendar className="text-orange-500" />
+                        My Visits
                       </Link>
+                    )}
+
+                    {isOwner && (
+                      <>
+                        <Link
+                          to="/owner/visits"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <HiCalendar className="text-blue-600" />
+                          Visit Requests
+                        </Link>
+                        <Link
+                          to="/owner/listings"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <FaBuilding className="text-slate-400" />
+                          My Properties
+                        </Link>
+                      </>
                     )}
 
                     <Link

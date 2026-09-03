@@ -25,7 +25,12 @@ router.post(
     upload.array("images", 5),
     createListing
 );
-router.put("/:id", authMiddleware, updateListing);
+router.put(
+    "/:id",
+    authMiddleware,
+    upload.array("images", 5),
+    updateListing
+);
 router.patch("/:id/status", authMiddleware, updateListingStatus);
 router.delete("/:id", authMiddleware, deleteListing);
 

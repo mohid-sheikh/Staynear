@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { getSingleListing } from "../../services/listingService.js";
 import ImageCarousel from "../../components/listings/ImageCarousel.jsx";
 import ReviewSection from "../../components/listings/ReviewSection.jsx";
 import StatusBadge from "../../components/dashboard/StatusBadge.jsx";
 import Loader from "../../components/common/Loader.jsx";
 import ErrorState from "../../components/common/ErrorState.jsx";
+import LocationMap from "../../components/maps/LocationMap.jsx";
+import ScheduleVisitModal from "../../components/visits/ScheduleVisitModal.jsx";
 import { useWishlist } from "../../hooks/useWishlist.js";
+import { useAuth } from "../../hooks/useAuth.js";
 import { 
   HiLocationMarker, 
   HiHeart, 
@@ -16,15 +19,19 @@ import {
   HiCheckCircle, 
   HiUserCircle,
   HiShieldCheck,
-  HiShare
+  HiShare,
+  HiCalendar
 } from "react-icons/hi";
 import toast from "react-hot-toast";
 
 const ListingDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const { isWishlisted, toggleWishlist, addRecentlyViewed } = useWishlist();
 
   const fetchDetails = async () => {
@@ -64,6 +71,7 @@ const ListingDetails = () => {
     roomType,
     amenities = [],
     images = [],
+    location,
     owner,
     status = "available",
   } = listing;
@@ -75,6 +83,19 @@ const ListingDetails = () => {
       navigator.clipboard.writeText(window.location.href);
       toast.success("Listing link copied to clipboard!");
     }
+  };
+
+  const handleScheduleVisitClick = () => {
+    if (!user) {
+      toast.error("Please login to schedule a property visit.");
+      navigate("/login");
+      return;
+    }
+    if (user.role === "owner" && owner?._id === user.id) {
+      toast.error("You cannot schedule a visit for your own property.");
+      return;
+    }
+    setIsVisitModalOpen(true);
   };
 
   return (
@@ -98,7 +119,7 @@ const ListingDetails = () => {
           </div>
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mt-2">
             <HiLocationMarker className="text-orange-500 text-base shrink-0" />
-            <span>{area}, {city}</span>
+            <span>{location?.address || `${area}, ${city}`}</span>
             <span>•</span>
             <span className="text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full font-bold">
               {roomType}
@@ -138,7 +159,7 @@ const ListingDetails = () => {
       {/* Main Grid: Photo Gallery & Quick Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left 2 Columns: Photo Carousel, Overview, Description, Amenities, Reviews */}
+        {/* Left 2 Columns: Photo Carousel, Overview, Description, Amenities, Location Map, Reviews */}
         <div className="lg:col-span-2 space-y-8">
           
           <ImageCarousel images={images} />
@@ -194,6 +215,14 @@ const ListingDetails = () => {
             )}
           </div>
 
+          {/* Property Location Map Section */}
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xs space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3">
+              Property Location & Map
+            </h3>
+            <LocationMap location={location} title={title} area={area} city={city} />
+          </div>
+
           {/* Reviews Component */}
           <ReviewSection listingId={_id} />
 
@@ -232,12 +261,21 @@ const ListingDetails = () => {
                 </div>
               </div>
 
+              {/* Schedule Property Visit CTA */}
+              <button
+                onClick={handleScheduleVisitClick}
+                className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-extrabold text-sm rounded-2xl shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
+              >
+                <HiCalendar className="text-lg" />
+                <span>Schedule Property Visit</span>
+              </button>
+
               {owner?.phone && (
                 <a
                   href={`tel:${owner.phone}`}
-                  className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm rounded-2xl shadow-md shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <HiPhone className="text-lg" />
+                  <HiPhone className="text-base" />
                   <span>Call Owner ({owner.phone})</span>
                 </a>
               )}
@@ -245,9 +283,9 @@ const ListingDetails = () => {
               {owner?.email && (
                 <a
                   href={`mailto:${owner.email}?subject=Inquiry%20regarding%20${encodeURIComponent(title)}`}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-2xl shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <HiMail className="text-lg" />
+                  <HiMail className="text-base" />
                   <span>Email Owner</span>
                 </a>
               )}
@@ -262,6 +300,14 @@ const ListingDetails = () => {
         </div>
 
       </div>
+
+      {/* Schedule Visit Modal */}
+      <ScheduleVisitModal
+        isOpen={isVisitModalOpen}
+        onClose={() => setIsVisitModalOpen(false)}
+        listingId={_id}
+        listingTitle={title}
+      />
 
     </div>
   );

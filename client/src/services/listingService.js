@@ -16,11 +16,7 @@ export const getMyListings = async () => {
 };
 
 export const createListing = async (formData) => {
-  const response = await api.post("/listings", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+  const response = await api.post("/listings", formData);
   return response.data;
 };
 

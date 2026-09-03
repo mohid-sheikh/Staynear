@@ -26,11 +26,13 @@ import OwnerDashboard from "./pages/owner/OwnerDashboard.jsx";
 import MyListings from "./pages/owner/MyListings.jsx";
 import CreateListing from "./pages/owner/CreateListing.jsx";
 import EditListing from "./pages/owner/EditListing.jsx";
+import OwnerVisits from "./pages/owner/OwnerVisits.jsx";
 
 // Student Pages
 import StudentDashboard from "./pages/student/StudentDashboard.jsx";
 import SavedListings from "./pages/student/SavedListings.jsx";
 import RecentlyViewed from "./pages/student/RecentlyViewed.jsx";
+import StudentVisits from "./pages/student/StudentVisits.jsx";
 
 function App() {
   return (
@@ -130,6 +132,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="owner/visits"
+            element={
+              <ProtectedRoute allowedRoles={["owner"]}>
+                <OwnerVisits />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Student Protected Routes */}
           <Route
@@ -153,6 +163,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["student"]}>
                 <RecentlyViewed />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="student/visits"
+            element={
+              <ProtectedRoute allowedRoles={["student"]}>
+                <StudentVisits />
               </ProtectedRoute>
             }
           />

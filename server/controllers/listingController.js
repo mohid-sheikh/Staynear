@@ -1,7 +1,44 @@
+import fs from "fs";
 import Listing from "../models/listingModels.js";
 import uploadImage from "../utils/uploadImage.js";
 
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80";
+const parseLocationData = (locationInput) => {
+    if (!locationInput) return undefined;
+    let locObj = locationInput;
+    if (typeof locationInput === "string") {
+        try {
+            locObj = JSON.parse(locationInput);
+        } catch (e) {
+            return undefined;
+        }
+    }
+    if (typeof locObj !== "object" || locObj === null) return undefined;
+
+    const address = locObj.address ? String(locObj.address).trim() : undefined;
+    const latitude = locObj.latitude !== undefined && locObj.latitude !== null && locObj.latitude !== ""
+        ? Number(locObj.latitude)
+        : undefined;
+    const longitude = locObj.longitude !== undefined && locObj.longitude !== null && locObj.longitude !== ""
+        ? Number(locObj.longitude)
+        : undefined;
+
+    if (latitude !== undefined && (isNaN(latitude) || latitude < -90 || latitude > 90)) {
+        throw new Error("Latitude must be a valid number between -90 and 90.");
+    }
+    if (longitude !== undefined && (isNaN(longitude) || longitude < -180 || longitude > 180)) {
+        throw new Error("Longitude must be a valid number between -180 and 180.");
+    }
+
+    if (!address && latitude === undefined && longitude === undefined) {
+        return undefined;
+    }
+
+    return {
+        ...(address ? { address } : {}),
+        ...(latitude !== undefined ? { latitude } : {}),
+        ...(longitude !== undefined ? { longitude } : {}),
+    };
+};
 
 export const createListing = async (req, res) => {
     try {
@@ -14,6 +51,7 @@ export const createListing = async (req, res) => {
             collegeNearby,
             roomType,
             amenities,
+            location,
         } = req.body;
 
         if (
@@ -31,17 +69,42 @@ export const createListing = async (req, res) => {
             });
         }
 
+        let parsedLocation;
+        try {
+            parsedLocation = parseLocationData(location);
+        } catch (locError) {
+            return res.status(400).json({
+                success: false,
+                message: locError.message,
+            });
+        }
+
         const imageUrls = [];
 
         if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-                const imageUrl = await uploadImage(file.path);
-                imageUrls.push(imageUrl);
+            try {
+                for (const file of req.files) {
+                    const imageUrl = await uploadImage(file.path);
+                    if (imageUrl) {
+                        imageUrls.push(imageUrl);
+                    }
+                }
+            } catch (uploadError) {
+                // Cleanup any remaining temp files
+                for (const file of req.files) {
+                    if (file.path && fs.existsSync(file.path)) {
+                        try {
+                            fs.unlinkSync(file.path);
+                        } catch (e) {
+                            // ignore cleanup error
+                        }
+                    }
+                }
+                return res.status(400).json({
+                    success: false,
+                    message: `Image upload failed: ${uploadError.message}. Please check your files and try again.`,
+                });
             }
-        }
-
-        if (imageUrls.length === 0) {
-            imageUrls.push(DEFAULT_IMAGE);
         }
 
         // Normalize amenities array
@@ -62,6 +125,7 @@ export const createListing = async (req, res) => {
             roomType,
             amenities: parsedAmenities,
             images: imageUrls,
+            location: parsedLocation,
             owner: req.user.id,
         });
 
@@ -243,9 +307,82 @@ export const updateListing = async (req, res) => {
             });
         }
 
+        const updateData = { ...req.body };
+
+        if (updateData.rent) {
+            updateData.rent = Number(updateData.rent);
+        }
+
+        if (req.body.location !== undefined) {
+            try {
+                updateData.location = parseLocationData(req.body.location);
+            } catch (locError) {
+                return res.status(400).json({
+                    success: false,
+                    message: locError.message,
+                });
+            }
+        }
+
+        if (req.body.amenities !== undefined) {
+            let parsedAmenities = [];
+            if (Array.isArray(req.body.amenities)) {
+                parsedAmenities = req.body.amenities;
+            } else if (typeof req.body.amenities === "string" && req.body.amenities.trim() !== "") {
+                try {
+                    const parsed = JSON.parse(req.body.amenities);
+                    parsedAmenities = Array.isArray(parsed) ? parsed : [req.body.amenities];
+                } catch (e) {
+                    parsedAmenities = [req.body.amenities];
+                }
+            }
+            updateData.amenities = parsedAmenities;
+        }
+
+        // Image Handling (preserve existing + add newly uploaded)
+        let updatedImages = listing.images || [];
+
+        if (req.body.existingImages !== undefined) {
+            let parsedExisting = [];
+            if (Array.isArray(req.body.existingImages)) {
+                parsedExisting = req.body.existingImages;
+            } else if (typeof req.body.existingImages === "string" && req.body.existingImages.trim() !== "") {
+                try {
+                    const parsed = JSON.parse(req.body.existingImages);
+                    parsedExisting = Array.isArray(parsed) ? parsed : [req.body.existingImages];
+                } catch (e) {
+                    parsedExisting = [req.body.existingImages];
+                }
+            }
+            updatedImages = parsedExisting.filter(img => typeof img === "string" && img.trim().length > 0);
+        }
+
+        if (req.files && req.files.length > 0) {
+            try {
+                for (const file of req.files) {
+                    const imageUrl = await uploadImage(file.path);
+                    if (imageUrl) {
+                        updatedImages.push(imageUrl);
+                    }
+                }
+            } catch (uploadError) {
+                for (const file of req.files) {
+                    if (file.path && fs.existsSync(file.path)) {
+                        try { fs.unlinkSync(file.path); } catch (e) {}
+                    }
+                }
+                return res.status(400).json({
+                    success: false,
+                    message: `Image upload failed: ${uploadError.message}`,
+                });
+            }
+        }
+
+        updateData.images = updatedImages;
+
         const updatedListing = await Listing.findByIdAndUpdate(
             req.params.id,
-            req.body,
+            updateData,
             {
                 new: true,
                 runValidators: true,
@@ -259,11 +396,11 @@ export const updateListing = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("updateListing Error:", error);
 
         res.status(500).json({
             success: false,
-            message: "Server Error",
+            message: error.message || "Server Error",
         });
     }
 };

@@ -1,14 +1,38 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useWishlist } from "../../hooks/useWishlist.js";
+import { getStudentVisitRequests } from "../../services/visitService.js";
 import DashboardStatCard from "../../components/dashboard/DashboardStatCard.jsx";
 import ListingCard from "../../components/listings/ListingCard.jsx";
-import { HiHeart, HiClock, HiSearch, HiAcademicCap } from "react-icons/hi";
+import { HiHeart, HiClock, HiSearch, HiCalendar, HiCheckCircle } from "react-icons/hi";
 import { FaGraduationCap } from "react-icons/fa";
 
 const StudentDashboard = () => {
   const { user } = useAuth();
   const { wishlist, recentlyViewed } = useWishlist();
+  const [visitStats, setVisitStats] = useState({
+    upcomingVisits: 0,
+    pendingVisits: 0,
+  });
+
+  useEffect(() => {
+    const fetchVisits = async () => {
+      try {
+        const data = await getStudentVisitRequests();
+        if (data.success && data.visits) {
+          const visits = data.visits;
+          setVisitStats({
+            upcomingVisits: visits.filter((v) => v.status === "approved" || v.status === "pending").length,
+            pendingVisits: visits.filter((v) => v.status === "pending").length,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load student visits on dashboard:", err);
+      }
+    };
+    fetchVisits();
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -27,17 +51,27 @@ const StudentDashboard = () => {
           </p>
         </div>
 
-        <Link
-          to="/listings"
-          className="px-6 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm rounded-2xl shadow-lg flex items-center gap-2 transition-all shrink-0"
-        >
-          <HiSearch className="text-lg" />
-          <span>Explore Campus Rooms</span>
-        </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            to="/student/visits"
+            className="px-5 py-3.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm rounded-2xl flex items-center gap-2 transition-all"
+          >
+            <HiCalendar className="text-lg text-orange-400" />
+            <span>My Visits ({visitStats.upcomingVisits})</span>
+          </Link>
+
+          <Link
+            to="/listings"
+            className="px-6 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm rounded-2xl shadow-lg flex items-center gap-2 transition-all"
+          >
+            <HiSearch className="text-lg" />
+            <span>Explore Campus Rooms</span>
+          </Link>
+        </div>
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <DashboardStatCard
           title="Saved Listings"
           value={wishlist.length}
@@ -46,11 +80,18 @@ const StudentDashboard = () => {
           description="In your wishlist"
         />
         <DashboardStatCard
-          title="Recently Viewed"
-          value={recentlyViewed.length}
-          icon={HiClock}
+          title="Upcoming Visits"
+          value={visitStats.upcomingVisits}
+          icon={HiCalendar}
           color="blue"
-          description="Viewed properties"
+          description="Approved & pending tours"
+        />
+        <DashboardStatCard
+          title="Pending Visits"
+          value={visitStats.pendingVisits}
+          icon={HiClock}
+          color="amber"
+          description="Awaiting owner response"
         />
         <DashboardStatCard
           title="College Campus"

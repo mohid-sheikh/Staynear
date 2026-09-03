@@ -1,0 +1,6 @@
+node_modules
+.env
+uploads/*
+!uploads/.gitkeep
+test_image_flow_e2e.js
+scratch_test_cloudinary_direct.js

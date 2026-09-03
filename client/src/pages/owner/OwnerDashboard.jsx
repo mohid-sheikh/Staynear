@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getMyListings, deleteListing } from "../../services/listingService.js";
 import { getOwnerAnalytics } from "../../services/dashboardService.js";
+import { getOwnerVisitRequests } from "../../services/visitService.js";
 import DashboardStatCard from "../../components/dashboard/DashboardStatCard.jsx";
 import StatusBadge from "../../components/dashboard/StatusBadge.jsx";
 import Loader from "../../components/common/Loader.jsx";
@@ -15,7 +16,9 @@ import {
   HiEye, 
   HiHeart,
   HiBookmark,
-  HiBan
+  HiBan,
+  HiCalendar,
+  HiClock
 } from "react-icons/hi";
 import { FaBuilding } from "react-icons/fa";
 import toast from "react-hot-toast";
@@ -29,6 +32,8 @@ const OwnerDashboard = () => {
     bookedListings: 0,
     occupiedListings: 0,
     totalWishlistCount: 0,
+    pendingVisitRequests: 0,
+    upcomingVisits: 0,
   });
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState(null);
@@ -36,19 +41,30 @@ const OwnerDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [listingsRes, analyticsRes] = await Promise.all([
+      const [listingsRes, analyticsRes, visitsRes] = await Promise.all([
         getMyListings(),
         getOwnerAnalytics().catch(() => null),
+        getOwnerVisitRequests().catch(() => null),
       ]);
 
       if (listingsRes && listingsRes.success) {
         setListings(listingsRes.listings || []);
       }
 
+      let pendingVisitsCount = 0;
+      let upcomingVisitsCount = 0;
+      if (visitsRes && visitsRes.success && visitsRes.visits) {
+        pendingVisitsCount = visitsRes.visits.filter((v) => v.status === "pending").length;
+        upcomingVisitsCount = visitsRes.visits.filter((v) => v.status === "approved").length;
+      }
+
       if (analyticsRes && analyticsRes.success && analyticsRes.analytics) {
-        setAnalytics(analyticsRes.analytics);
+        setAnalytics({
+          ...analyticsRes.analytics,
+          pendingVisitRequests: pendingVisitsCount,
+          upcomingVisits: upcomingVisitsCount,
+        });
       } else if (listingsRes && listingsRes.listings) {
-        // Fallback calculations if analytics endpoint fails
         const all = listingsRes.listings;
         setAnalytics({
           totalListings: all.length,
@@ -56,6 +72,8 @@ const OwnerDashboard = () => {
           bookedListings: all.filter((l) => l.status === "booked").length,
           occupiedListings: all.filter((l) => l.status === "occupied").length,
           totalWishlistCount: 0,
+          pendingVisitRequests: pendingVisitsCount,
+          upcomingVisits: upcomingVisitsCount,
         });
       }
     } catch (err) {
@@ -102,17 +120,27 @@ const OwnerDashboard = () => {
           </p>
         </div>
 
-        <Link
-          to="/owner/create-listing"
-          className="px-6 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm rounded-2xl shadow-lg flex items-center gap-2 transition-all shrink-0"
-        >
-          <HiPlus className="text-lg" />
-          <span>Post Accommodation</span>
-        </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            to="/owner/visits"
+            className="px-5 py-3.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-sm rounded-2xl flex items-center gap-2 transition-all"
+          >
+            <HiCalendar className="text-lg text-orange-400" />
+            <span>Visit Requests ({analytics.pendingVisitRequests})</span>
+          </Link>
+
+          <Link
+            to="/owner/create-listing"
+            className="px-6 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm rounded-2xl shadow-lg flex items-center gap-2 transition-all shrink-0"
+          >
+            <HiPlus className="text-lg" />
+            <span>Post Accommodation</span>
+          </Link>
+        </div>
       </div>
 
       {/* Analytics Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <DashboardStatCard
           title="Total Listings"
           value={analytics.totalListings}
@@ -126,6 +154,13 @@ const OwnerDashboard = () => {
           icon={HiCheckCircle}
           color="emerald"
           description="Open for students"
+        />
+        <DashboardStatCard
+          title="Pending Visits"
+          value={analytics.pendingVisitRequests}
+          icon={HiClock}
+          color="amber"
+          description="Awaiting action"
         />
         <DashboardStatCard
           title="Booked"

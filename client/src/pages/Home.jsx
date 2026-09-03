@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   HiSearch, 
@@ -13,12 +13,33 @@ import {
 } from "react-icons/hi";
 import { FaBuilding, FaGraduationCap, FaShieldAlt, FaPiggyBank, FaWifi } from "react-icons/fa";
 import { POPULAR_COLLEGES, ROOM_TYPES } from "../utils/constants.js";
+import { getAllListings } from "../services/listingService.js";
+import ListingCard from "../components/listings/ListingCard.jsx";
+import Loader from "../components/common/Loader.jsx";
 
 const Home = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedRoomType, setSelectedRoomType] = useState("");
+  const [featuredListings, setFeaturedListings] = useState([]);
+  const [loadingListings, setLoadingListings] = useState(true);
+
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      try {
+        const data = await getAllListings({ limit: 3, sort: "newest" });
+        if (data.success) {
+          setFeaturedListings(data.listings || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch featured listings:", err);
+      } finally {
+        setLoadingListings(false);
+      }
+    };
+    fetchFeatured();
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -183,7 +204,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 3. FEATURED LISTINGS PREVIEW (UI Layout for Sprint 1, connects to GET /api/listings in Sprint 2) */}
+      {/* 3. FEATURED LISTINGS */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
           <div>
@@ -207,136 +228,21 @@ const Home = () => {
           </Link>
         </div>
 
-        {/* Preview Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          
-          {/* Card Preview 1 */}
-          <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col">
-            <div className="relative h-56 bg-slate-200 overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80"
-                alt="Modern Student PG"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-blue-700 shadow-xs">
-                PG / Hostel
-              </div>
-              <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-md">
-                ₹8,500 / mo
-              </div>
-            </div>
-
-            <div className="p-5 flex flex-col flex-grow">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-2">
-                <HiLocationMarker className="text-orange-500" />
-                <span>North Campus, Delhi</span>
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                Luxury Student PG with Meal Service
-              </h3>
-              <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                Fully furnished room with high-speed Wi-Fi, air conditioning, daily housekeeping, and 3-time meals included.
-              </p>
-
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
-                  Near DU North Campus
-                </span>
-                <Link
-                  to="/listings"
-                  className="text-xs font-bold text-slate-700 hover:text-blue-600 flex items-center gap-1"
-                >
-                  Details <HiArrowRight className="text-xs" />
-                </Link>
-              </div>
-            </div>
+        {/* Dynamic Featured Cards Grid */}
+        {loadingListings ? (
+          <Loader message="Loading featured accommodations..." />
+        ) : featuredListings.length === 0 ? (
+          <div className="bg-white rounded-3xl p-8 border border-slate-100 text-center text-slate-500">
+            <p className="text-sm font-semibold">No accommodations listed yet.</p>
+            <p className="text-xs text-slate-400 mt-1">Be the first property owner to list your property!</p>
           </div>
-
-          {/* Card Preview 2 */}
-          <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col">
-            <div className="relative h-56 bg-slate-200 overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80"
-                alt="Single Room Near IIT"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-blue-700 shadow-xs">
-                Single Room
-              </div>
-              <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-md">
-                ₹12,000 / mo
-              </div>
-            </div>
-
-            <div className="p-5 flex flex-col flex-grow">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-2">
-                <HiLocationMarker className="text-orange-500" />
-                <span>Powai, Mumbai</span>
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                Private Studio Single Occupancy
-              </h3>
-              <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                Quiet single room designed for serious study. Includes study desk, bookshelf, personal balcony, and 24/7 power backup.
-              </p>
-
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
-                  Near IIT Bombay
-                </span>
-                <Link
-                  to="/listings"
-                  className="text-xs font-bold text-slate-700 hover:text-blue-600 flex items-center gap-1"
-                >
-                  Details <HiArrowRight className="text-xs" />
-                </Link>
-              </div>
-            </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {featuredListings.map((listing) => (
+              <ListingCard key={listing._id} listing={listing} />
+            ))}
           </div>
-
-          {/* Card Preview 3 */}
-          <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col">
-            <div className="relative h-56 bg-slate-200 overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80"
-                alt="Shared Room Bangalore"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-blue-700 shadow-xs">
-                Double Sharing
-              </div>
-              <div className="absolute top-3 right-3 bg-orange-500 text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-md">
-                ₹6,500 / mo
-              </div>
-            </div>
-
-            <div className="p-5 flex flex-col flex-grow">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-2">
-                <HiLocationMarker className="text-orange-500" />
-                <span>Koramangala, Bangalore</span>
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                Modern Double Sharing Room
-              </h3>
-              <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                Spacious twin bed room with attached bathroom, gaming lobby, high-speed Wi-Fi, and 5 mins walk to college.
-              </p>
-
-              <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
-                  Near Christ University
-                </span>
-                <Link
-                  to="/listings"
-                  className="text-xs font-bold text-slate-700 hover:text-blue-600 flex items-center gap-1"
-                >
-                  Details <HiArrowRight className="text-xs" />
-                </Link>
-              </div>
-            </div>
-          </div>
-
-        </div>
+        )}
       </section>
 
       {/* 4. WHY STAYNEAR SECTION */}

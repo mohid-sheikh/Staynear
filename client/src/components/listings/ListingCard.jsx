@@ -1,13 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { HiLocationMarker, HiHeart, HiOutlineHeart } from "react-icons/hi";
+import { HiLocationMarker, HiHeart, HiOutlineHeart, HiPhotograph } from "react-icons/hi";
 import { FaGraduationCap } from "react-icons/fa";
 import { useWishlist } from "../../hooks/useWishlist.js";
 import StatusBadge from "../dashboard/StatusBadge.jsx";
 
-const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80";
+import { getImageUrl } from "../../utils/imageUtils.js";
 
 const ListingCard = ({ listing }) => {
   const { isWishlisted, toggleWishlist } = useWishlist();
+  const [imageError, setImageError] = useState(false);
 
   if (!listing) return null;
 
@@ -24,7 +26,8 @@ const ListingCard = ({ listing }) => {
     status = "available",
   } = listing;
 
-  const coverImage = images.length > 0 ? images[0] : DEFAULT_IMAGE;
+  const coverImageUrl = images.length > 0 ? getImageUrl(images[0]) : null;
+  const hasValidImage = Boolean(coverImageUrl) && !imageError;
   const wishlisted = isWishlisted(_id);
 
   return (
@@ -32,12 +35,21 @@ const ListingCard = ({ listing }) => {
       
       {/* Image Container */}
       <div className="relative h-52 sm:h-56 bg-slate-100 overflow-hidden shrink-0">
-        <img
-          src={coverImage}
-          alt={title}
-          onError={(e) => { e.target.src = DEFAULT_IMAGE; }}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+        {hasValidImage ? (
+          <img
+            src={coverImageUrl}
+            alt={title}
+            onError={() => setImageError(true)}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 flex flex-col items-center justify-center text-slate-400 p-4 text-center select-none">
+            <HiPhotograph className="text-4xl text-slate-400 mb-1" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Photo Unavailable
+            </span>
+          </div>
+        )}
 
         {/* Room Type Badge */}
         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-blue-700 shadow-xs">
